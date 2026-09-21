@@ -51,4 +51,33 @@ fraud-detection-pipeline/
 
 ## How to run
 
-_(To be filled in as the baseline lands.)_
+### Setup
+
+```bash
+conda env create -f environment.yml
+conda activate fraud-detection
+
+# macOS only: XGBoost needs the OpenMP runtime
+brew install libomp
+```
+
+### Data
+
+Download the [IEEE-CIS Fraud Detection dataset](https://www.kaggle.com/c/ieee-fraud-detection/data)
+(requires a free Kaggle account and accepting the competition rules), then
+unzip into `data/raw/`:
+
+```
+data/raw/
+├── train_transaction.csv
+├── train_identity.csv
+├── test_transaction.csv
+├── test_identity.csv
+└── sample_submission.csv
+```
+
+`data/` is gitignored — the raw CSVs (~1.3GB total) are not committed.
+
+### Training
+
+_(To be filled in once Milestone 1's training script lands.)_

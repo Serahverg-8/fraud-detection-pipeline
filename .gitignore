@@ -1,0 +1,25 @@
+# data
+data/*
+!data/.gitkeep
+
+# models
+models/*
+!models/.gitkeep
+
+# experiment tracking
+mlruns/
+experiments.csv
+
+# python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+venv/
+*.egg-info/
+
+# env / secrets
+.env
+
+# os
+.DS_Store

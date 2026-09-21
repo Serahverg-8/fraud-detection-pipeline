@@ -132,6 +132,24 @@ features, features+pruned) as a starting history. View with:
 mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
 
+### Milestone 4 — Model experimentation (in progress)
+
+**XGBoost tuning done:** 30-trial Optuna search (`python -m src.tune`) over
+`max_depth`, `learning_rate`, `n_estimators`, `min_child_weight`,
+`subsample`, `colsample_bytree` on the pruned feature set. Every trial
+logged to MLflow (`run_type=tuning_xgboost`).
+
+- PR-AUC: 0.521 → **0.578** (best trial: `max_depth=10, learning_rate=0.15,
+  n_estimators=437, min_child_weight=9, subsample=0.73,
+  colsample_bytree=0.92`)
+- **Didn't fully explore:** the best trials consistently pushed toward
+  `max_depth=10`, the upper edge of the search space — there's likely more
+  headroom with deeper trees. Not re-run with a wider range this pass
+  (diminishing time-value for a portfolio project vs. moving on to
+  LightGBM/CatBoost/TabM), but noted honestly rather than presenting 0.578
+  as a ceiling.
+- LightGBM, CatBoost, and TabM tuning: not yet done.
+
 ## Repo structure
 
 ```

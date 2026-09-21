@@ -33,7 +33,7 @@ fraud-detection-pipeline/
 │   ├── serve.py             # FastAPI scoring endpoint (Milestone 6)
 │   └── monitor.py           # drift check (Milestone 7)
 ├── models/                 # saved model artifacts (gitignored)
-├── mlruns/                  # MLflow tracking data (gitignored)
+├── mlflow.db               # MLflow run history (gitignored)
 ├── Dockerfile               # Milestone 8
 └── requirements.txt
 ```

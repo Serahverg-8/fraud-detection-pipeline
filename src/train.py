@@ -15,12 +15,15 @@ import argparse
 import json
 import os
 
+import mlflow
 import numpy as np
 import pandas as pd
 import xgboost as xgb
 from sklearn.metrics import (
     average_precision_score,
     classification_report,
+    precision_score,
+    recall_score,
     roc_auc_score,
 )
 
@@ -28,6 +31,7 @@ from src.features import add_card_aggregate_features
 
 DATA_DIR = "data/raw"
 DROPPED_FEATURES_PATH = "src/dropped_features.json"
+MLFLOW_EXPERIMENT_NAME = "fraud-detection"
 
 # Columns that were >90% missing in EDA (notebooks/01_eda.ipynb) — dropping
 # for the baseline rather than imputing; revisit if they turn out to matter.
@@ -74,6 +78,33 @@ def drop_pruned_features(df: pd.DataFrame, dropped_path: str = DROPPED_FEATURES_
     return df.drop(columns=[c for c in dropped_cols if c in df.columns])
 
 
+def build_run_params(args, model_params: dict, scale_pos_weight: float, n_features: int) -> dict:
+    """Decide what to log as MLflow params for this run, given the CLI flags
+    that determine which variant (baseline / features / features_pruned) is
+    being trained.
+    """
+    if args.baseline:
+        run_type = "baseline"
+    elif args.prune:
+        run_type = "features_pruned"
+    else:
+        run_type = "features"
+    return {
+        "run_type": run_type,
+        "scale_pos_weight": scale_pos_weight,
+        "n_features": n_features,
+        **model_params,
+    }
+
+
+def log_run(params: dict, metrics: dict) -> str:
+    """Log a completed run's params and metrics to MLflow. Returns the run ID."""
+    with mlflow.start_run() as run:
+        mlflow.log_params(params)
+        mlflow.log_metrics(metrics)
+        return run.info.run_id
+
+
 def time_based_split(df: pd.DataFrame, val_frac: float = 0.2):
     # TransactionDT is seconds-since-a-reference-point, i.e. a proxy for
     # transaction order. Splitting on time (train = earlier, val = later)
@@ -99,6 +130,9 @@ def main():
         "(produced by notebooks/02_feature_importance.ipynb).",
     )
     args = parser.parse_args()
+
+    mlflow.set_tracking_uri("sqlite:///mlflow.db")
+    mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
 
     print("Loading data...")
     df = load_data()
@@ -131,10 +165,9 @@ def main():
     scale_pos_weight = (y_train == 0).sum() / (y_train == 1).sum()
     print(f"scale_pos_weight: {scale_pos_weight:.2f}")
 
+    model_params = {"n_estimators": 200, "max_depth": 6, "learning_rate": 0.1}
     model = xgb.XGBClassifier(
-        n_estimators=200,
-        max_depth=6,
-        learning_rate=0.1,
+        **model_params,
         scale_pos_weight=scale_pos_weight,
         eval_metric="aucpr",
         tree_method="hist",
@@ -155,11 +188,23 @@ def main():
 
     pr_auc = average_precision_score(y_val, val_probs)
     roc_auc = roc_auc_score(y_val, val_probs)
+    fraud_precision = precision_score(y_val, val_preds)
+    fraud_recall = recall_score(y_val, val_preds)
 
     print(f"\nPR-AUC:  {pr_auc:.4f}")
     print(f"ROC-AUC: {roc_auc:.4f}  (reported for reference — PR-AUC is the metric that matters here)")
     print("\nClassification report @ threshold 0.5:")
     print(classification_report(y_val, val_preds, target_names=["legit", "fraud"]))
+
+    run_params = build_run_params(args, model_params, scale_pos_weight, len(feature_cols))
+    run_metrics = {
+        "pr_auc": pr_auc,
+        "roc_auc": roc_auc,
+        "fraud_precision": fraud_precision,
+        "fraud_recall": fraud_recall,
+    }
+    run_id = log_run(run_params, run_metrics)
+    print(f"Logged to MLflow, run_id={run_id}")
 
     if args.baseline:
         model_path = "models/baseline_xgb.json"

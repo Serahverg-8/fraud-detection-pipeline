@@ -8,6 +8,8 @@ models/*
 
 # experiment tracking
 mlruns/
+mlartifacts/
+mlflow.db
 experiments.csv
 
 # python

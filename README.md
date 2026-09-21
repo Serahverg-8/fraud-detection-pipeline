@@ -20,7 +20,7 @@ accuracy is close to meaningless here.
 
 - [x] Milestone 1 — Baseline (EDA + plain model, no feature engineering)
 - [x] Milestone 2 — Feature engineering (group aggregations vs. baseline PR-AUC)
-- [ ] Milestone 3 — MLflow experiment tracking
+- [x] Milestone 3 — MLflow experiment tracking
 - [ ] Milestone 4 — Model experimentation (XGBoost/LightGBM/CatBoost tuning + TabM)
 - [ ] Milestone 5 — Kaggle submission
 - [ ] Milestone 6 — Serving (FastAPI scoring endpoint)
@@ -119,6 +119,19 @@ src.train --prune`) held PR-AUC essentially flat (0.520 → 0.521) with 27%
 fewer features — a nice confirmation that a chunk of the anonymized
 `V`-columns really are redundant, not independent signal.
 
+### Milestone 3 — MLflow experiment tracking
+
+Every `python -m src.train` run now logs its params (run type, hyperparams,
+`scale_pos_weight`, feature count) and metrics (PR-AUC, ROC-AUC, fraud
+precision/recall) to a local MLflow instance (`sqlite:///mlflow.db` — MLflow
+3.x deprecated the plain-file `mlruns/` backend, so SQLite is the current
+recommended local setup). Backfilled the 3 existing runs (baseline,
+features, features+pruned) as a starting history. View with:
+
+```bash
+mlflow ui --backend-store-uri sqlite:///mlflow.db
+```
+
 ## Repo structure
 
 ```
@@ -134,8 +147,8 @@ fraud-detection-pipeline/
 │   └── monitor.py     # drift check
 ├── models/            # saved model artifacts (gitignored)
 ├── tests/             # unit tests (pytest)
-├── experiments.csv    # run log (or mlruns/ if using MLflow)
-├── Dockerfile          # stretch goal
+├── mlflow.db          # MLflow run history (gitignored)
+├── Dockerfile          # Milestone 8
 └── requirements.txt
 ```
 

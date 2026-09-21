@@ -2,11 +2,13 @@
 
 A lightweight, end-to-end fraud detection system built on the [IEEE-CIS Fraud
 Detection dataset](https://www.kaggle.com/c/ieee-fraud-detection): data →
-features → model → serving → monitoring.
+features → tuning → serving → monitoring, ending in an actual Kaggle
+leaderboard submission.
 
 Built incrementally as a portfolio project, one milestone at a time. The goal
-is to demonstrate judgment across the full ML lifecycle — not just squeeze
-out the best leaderboard score.
+is to demonstrate judgment across the full ML lifecycle, not just chase a
+leaderboard number — but a real submission at the end is still the honest
+way to prove the model works.
 
 ## Why this project
 
@@ -18,10 +20,12 @@ accuracy is close to meaningless here.
 
 - [x] Milestone 1 — Baseline (EDA + plain model, no feature engineering)
 - [x] Milestone 2 — Feature engineering (group aggregations vs. baseline PR-AUC)
-- [ ] Milestone 3 — Experiment tracking
-- [ ] Milestone 4 — Serving (FastAPI scoring endpoint)
-- [ ] Milestone 5 — Monitoring (drift check)
-- [ ] Milestone 6 — Containerize (stretch)
+- [ ] Milestone 3 — MLflow experiment tracking
+- [ ] Milestone 4 — Hyperparameter tuning
+- [ ] Milestone 5 — Kaggle submission
+- [ ] Milestone 6 — Serving (FastAPI scoring endpoint)
+- [ ] Milestone 7 — Monitoring (drift check)
+- [ ] Milestone 8 — Containerize
 
 See [plan.md](plan.md) for the full milestone breakdown and working rhythm.
 

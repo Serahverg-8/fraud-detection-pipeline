@@ -3,12 +3,13 @@
 ## Goal
 
 A lightweight but complete end-to-end ML system: data → features → model →
-serving → monitoring. Built incrementally, one milestone per week, using the
-IEEE-CIS Fraud Detection dataset (real e-commerce transaction data from a
-payments company).
+tuning → serving → monitoring. Built incrementally, one milestone per week,
+using the IEEE-CIS Fraud Detection dataset (real e-commerce transaction data
+from a payments company).
 
 This is a portfolio project — the point is to demonstrate judgment across the
-full ML lifecycle, not just model accuracy.
+full ML lifecycle, not just model accuracy. Revised after Milestone 2 to also
+target an actual Kaggle leaderboard submission, not just a documented score.
 
 ## Why this project
 
@@ -22,16 +23,18 @@ show.
 fraud-detection-pipeline/
 ├── README.md              # problem, approach, results, how to run
 ├── plan.md                # this file
-├── data/                  # raw + processed (or a fetch script)
+├── data/                  # raw + processed (gitignored)
 ├── notebooks/              # exploratory work — EDA, experiments
 ├── src/
 │   ├── features.py         # feature engineering
 │   ├── train.py             # training script
-│   ├── serve.py             # FastAPI scoring endpoint
-│   └── monitor.py           # drift check
-├── models/                 # saved model artifacts
-├── experiments.csv          # or mlruns/ if using MLflow
-├── Dockerfile               # stretch goal
+│   ├── tune.py               # hyperparameter tuning (Milestone 4)
+│   ├── predict.py            # test-set predictions for Kaggle submission (Milestone 5)
+│   ├── serve.py             # FastAPI scoring endpoint (Milestone 6)
+│   └── monitor.py           # drift check (Milestone 7)
+├── models/                 # saved model artifacts (gitignored)
+├── mlruns/                  # MLflow tracking data (gitignored)
+├── Dockerfile               # Milestone 8
 └── requirements.txt
 ```
 
@@ -42,13 +45,20 @@ fraud-detection-pipeline/
    something runs, not correctness.
 2. **Feature engineering** — group aggregations (e.g. average transaction
    amount per card over a rolling window). Compare PR-AUC against baseline.
-3. **Experiment tracking** — every run's params/metrics logged (CSV or local
-   MLflow).
-4. **Serving** — a small FastAPI endpoint that scores one transaction.
-5. **Monitoring** — a basic drift check on one feature's distribution over
+3. **MLflow experiment tracking** — local MLflow set up, logging params/
+   metrics/artifacts for every run going forward (including backfilling the
+   Milestone 1/2 results as a starting history).
+4. **Hyperparameter tuning** — systematic XGBoost tuning (Optuna) on the
+   Milestone 2 feature set, every trial logged to MLflow. Pick the best run.
+5. **Kaggle submission** — generate predictions on the competition's
+   `test_transaction.csv` with the best tuned model and submit for an actual
+   leaderboard score.
+6. **Serving** — a small FastAPI endpoint that scores one transaction, using
+   the best model from Milestone 4/5.
+7. **Monitoring** — a basic drift check on one feature's distribution over
    time.
-6. **Containerize (stretch)** — a Dockerfile for reproducibility outside the
-   dev machine.
+8. **Containerize** — a Dockerfile for reproducibility outside the dev
+   machine (promoted from a stretch goal — needed for the finished pipeline).
 
 ## Working rhythm
 
@@ -58,12 +68,17 @@ fraud-detection-pipeline/
   finished — partial progress with a note beats a silent gap.
 - Log Kaggle-inspired techniques tried (and whether they helped) directly in
   the README's "approach" section as they're added.
+- Keep the codebase and process lightweight — this is iterative, first-pass
+  work with expected retries, not a production system. Don't over-build.
 
 ## Status
 
-- [ ] Milestone 1 — Baseline
-- [ ] Milestone 2 — Feature engineering
-- [ ] Milestone 3 — Experiment tracking
-- [ ] Milestone 4 — Serving
-- [ ] Milestone 5 — Monitoring
-- [ ] Milestone 6 — Containerize (stretch)
+- [x] Milestone 1 — Baseline (PR-AUC 0.513)
+- [x] Milestone 2 — Feature engineering (PR-AUC 0.520; 0.521 after a feature
+      pruning detour — see README)
+- [ ] Milestone 3 — MLflow experiment tracking
+- [ ] Milestone 4 — Hyperparameter tuning
+- [ ] Milestone 5 — Kaggle submission
+- [ ] Milestone 6 — Serving
+- [ ] Milestone 7 — Monitoring
+- [ ] Milestone 8 — Containerize

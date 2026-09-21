@@ -17,7 +17,7 @@ accuracy is close to meaningless here.
 ## Status
 
 - [x] Milestone 1 — Baseline (EDA + plain model, no feature engineering)
-- [ ] Milestone 2 — Feature engineering (group aggregations vs. baseline PR-AUC)
+- [x] Milestone 2 — Feature engineering (group aggregations vs. baseline PR-AUC)
 - [ ] Milestone 3 — Experiment tracking
 - [ ] Milestone 4 — Serving (FastAPI scoring endpoint)
 - [ ] Milestone 5 — Monitoring (drift check)
@@ -64,6 +64,48 @@ the columns usable:
   a fair comparison point for future feature work, not the best possible
   score on this feature set.
 
+### Milestone 2 — Feature engineering
+
+**Approach:** added 6 leakage-safe per-card aggregation features
+(`src/features.py`), grouped by `card1` (the closest thing to a card
+identifier in the anonymized data):
+- `card1_count_expanding`, `card1_amt_mean_expanding`, `card1_amt_std_expanding`
+  — stats over *all prior* transactions for that card
+- `card1_count_24h`, `card1_amt_mean_24h` — stats over the *trailing 24h* only
+- `amt_to_card1_mean_ratio` — current amount ÷ that card's running mean (an
+  "is this transaction out of pattern for this card?" signal)
+
+**Leakage safety** was the main design constraint, not the feature list
+itself: every stat is computed from transactions strictly *before* the
+current one (via `shift`/`rolling(closed='left')`), and features are
+computed on the full time-sorted dataset *before* the train/val split — a
+validation-row is allowed to see history from earlier training rows (that's
+how the model would actually be used in production), but never the
+reverse. Covered by 7 unit tests in `tests/test_features.py`, including an
+explicit test that mutating a later transaction's data doesn't change an
+earlier transaction's computed features.
+
+**Results** (`python -m src.train`, same time-based split as Milestone 1):
+- PR-AUC: 0.513 → **0.520**
+- ROC-AUC: 0.902 → 0.900 (essentially flat, as expected — see Milestone 1
+  notes on why ROC-AUC is a poor discriminator of quality here)
+- Recall at threshold 0.5 ticked up slightly (70% → 71%), precision flat (23%)
+
+**What didn't work / tradeoffs:**
+- The PR-AUC gain (+0.007) is real but modest — a single grouping key
+  (`card1`) and a narrow feature set moves the needle less than expected
+  going in. This tracks with fraud-detection literature: aggregation
+  features tend to help more in combination with several grouping keys
+  (e.g. card × merchant, card × device) than any one key alone.
+  Worth revisiting with `addr1` or a card+`ProductCD` combination if there's
+  a follow-up pass, but out of scope for keeping this milestone's feature
+  set small enough to cleanly attribute the PR-AUC change to.
+- Computing exact leakage-safe rolling stats via `groupby().apply()` (used
+  for the 24h window, to keep row alignment provably correct rather than
+  relying on `groupby().rolling()`'s output ordering) is a few seconds
+  slower than a fully vectorized approach. At 590k rows it's a non-issue
+  (~2.5s total); would need revisiting at meaningfully larger scale.
+
 ## Repo structure
 
 ```
@@ -78,6 +120,7 @@ fraud-detection-pipeline/
 │   ├── serve.py       # FastAPI scoring endpoint
 │   └── monitor.py     # drift check
 ├── models/            # saved model artifacts (gitignored)
+├── tests/             # unit tests (pytest)
 ├── experiments.csv    # run log (or mlruns/ if using MLflow)
 ├── Dockerfile          # stretch goal
 └── requirements.txt
@@ -115,9 +158,16 @@ data/raw/
 ### Training
 
 ```bash
-python src/train.py
+python -m src.train              # with Milestone 2 engineered features
+python -m src.train --baseline   # Milestone 1 baseline, for comparison
 ```
 
-Trains the baseline XGBoost model, prints PR-AUC/ROC-AUC/precision/recall
-on a held-out (time-based) validation split, and saves the model to
-`models/baseline_xgb.json` (gitignored).
+Prints PR-AUC/ROC-AUC/precision/recall on a held-out (time-based)
+validation split, and saves the model to `models/features_xgb.json` (or
+`models/baseline_xgb.json` with `--baseline`) — both gitignored.
+
+### Tests
+
+```bash
+python -m pytest tests/ -v
+```

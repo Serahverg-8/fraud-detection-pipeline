@@ -1,16 +1,17 @@
 """
-Baseline training script — Milestone 1.
+Training script — Milestones 1 & 2.
 
-Trains a plain XGBoost classifier on the IEEE-CIS Fraud Detection dataset
-with NO feature engineering: just enough preprocessing to make the raw
-columns model-able (drop near-empty columns, encode categoricals as
-integer codes, log-transform the one obvious numeric feature). The goal is
-an honest end-to-end run to compare future feature-engineering work
-against, not a tuned model.
+Trains an XGBoost classifier on the IEEE-CIS Fraud Detection dataset.
+By default it includes the Milestone 2 per-card aggregation features
+(src/features.py); pass --baseline to reproduce the Milestone 1 result
+(no feature engineering) for comparison.
 
 Usage:
-    python src/train.py
+    python src/train.py               # with engineered features
+    python src/train.py --baseline    # Milestone 1 baseline, for comparison
 """
+
+import argparse
 
 import numpy as np
 import pandas as pd
@@ -21,8 +22,9 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
+from src.features import add_card_aggregate_features
+
 DATA_DIR = "data/raw"
-MODEL_PATH = "models/baseline_xgb.json"
 
 # Columns that were >90% missing in EDA (notebooks/01_eda.ipynb) — dropping
 # for the baseline rather than imputing; revisit if they turn out to matter.
@@ -68,8 +70,20 @@ def time_based_split(df: pd.DataFrame, val_frac: float = 0.2):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--baseline",
+        action="store_true",
+        help="Skip Milestone 2 feature engineering (reproduces the Milestone 1 baseline).",
+    )
+    args = parser.parse_args()
+
     print("Loading data...")
     df = load_data()
+
+    if not args.baseline:
+        print("Adding per-card aggregation features...")
+        df = add_card_aggregate_features(df)
 
     print("Preprocessing...")
     df = preprocess(df)
@@ -120,8 +134,9 @@ def main():
     print("\nClassification report @ threshold 0.5:")
     print(classification_report(y_val, val_preds, target_names=["legit", "fraud"]))
 
-    model.save_model(MODEL_PATH)
-    print(f"Model saved to {MODEL_PATH}")
+    model_path = "models/baseline_xgb.json" if args.baseline else "models/features_xgb.json"
+    model.save_model(model_path)
+    print(f"Model saved to {model_path}")
 
 
 if __name__ == "__main__":

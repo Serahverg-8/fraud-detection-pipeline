@@ -23,3 +23,9 @@ venv/
 
 # os
 .DS_Store
+
+# editor
+.vscode/
+
+# test cache
+.pytest_cache/

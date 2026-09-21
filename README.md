@@ -21,7 +21,7 @@ accuracy is close to meaningless here.
 - [x] Milestone 1 — Baseline (EDA + plain model, no feature engineering)
 - [x] Milestone 2 — Feature engineering (group aggregations vs. baseline PR-AUC)
 - [ ] Milestone 3 — MLflow experiment tracking
-- [ ] Milestone 4 — Hyperparameter tuning
+- [ ] Milestone 4 — Model experimentation (XGBoost/LightGBM/CatBoost tuning + TabM)
 - [ ] Milestone 5 — Kaggle submission
 - [ ] Milestone 6 — Serving (FastAPI scoring endpoint)
 - [ ] Milestone 7 — Monitoring (drift check)

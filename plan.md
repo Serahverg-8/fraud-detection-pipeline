@@ -48,8 +48,11 @@ fraud-detection-pipeline/
 3. **MLflow experiment tracking** — local MLflow set up, logging params/
    metrics/artifacts for every run going forward (including backfilling the
    Milestone 1/2 results as a starting history).
-4. **Hyperparameter tuning** — systematic XGBoost tuning (Optuna) on the
-   Milestone 2 feature set, every trial logged to MLflow. Pick the best run.
+4. **Model experimentation** — systematic tuning (Optuna) of XGBoost,
+   LightGBM, and CatBoost on the Milestone 2 feature set, plus TabM (a
+   parameter-efficient deep learning model — genuine tree-vs-deep-learning
+   comparison, unlike TabPFN/TabFM/TabICL which don't fit this dataset's
+   scale, see README). Every trial logged to MLflow. Pick the best run.
 5. **Kaggle submission** — generate predictions on the competition's
    `test_transaction.csv` with the best tuned model and submit for an actual
    leaderboard score.
@@ -77,7 +80,7 @@ fraud-detection-pipeline/
 - [x] Milestone 2 — Feature engineering (PR-AUC 0.520; 0.521 after a feature
       pruning detour — see README)
 - [ ] Milestone 3 — MLflow experiment tracking
-- [ ] Milestone 4 — Hyperparameter tuning
+- [ ] Milestone 4 — Model experimentation (tuning + TabM)
 - [ ] Milestone 5 — Kaggle submission
 - [ ] Milestone 6 — Serving
 - [ ] Milestone 7 — Monitoring

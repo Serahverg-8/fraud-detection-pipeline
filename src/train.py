@@ -12,6 +12,8 @@ Usage:
 """
 
 import argparse
+import json
+import os
 
 import numpy as np
 import pandas as pd
@@ -25,6 +27,7 @@ from sklearn.metrics import (
 from src.features import add_card_aggregate_features
 
 DATA_DIR = "data/raw"
+DROPPED_FEATURES_PATH = "src/dropped_features.json"
 
 # Columns that were >90% missing in EDA (notebooks/01_eda.ipynb) — dropping
 # for the baseline rather than imputing; revisit if they turn out to matter.
@@ -58,6 +61,19 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def drop_pruned_features(df: pd.DataFrame, dropped_path: str = DROPPED_FEATURES_PATH) -> pd.DataFrame:
+    """Drop columns listed in a JSON file of low-value/redundant feature names
+    (produced by notebooks/02_feature_importance.ipynb). Returns df unchanged
+    if the file doesn't exist, and silently ignores listed names that aren't
+    present as columns.
+    """
+    if not os.path.exists(dropped_path):
+        return df
+    with open(dropped_path) as f:
+        dropped_cols = json.load(f)
+    return df.drop(columns=[c for c in dropped_cols if c in df.columns])
+
+
 def time_based_split(df: pd.DataFrame, val_frac: float = 0.2):
     # TransactionDT is seconds-since-a-reference-point, i.e. a proxy for
     # transaction order. Splitting on time (train = earlier, val = later)
@@ -76,6 +92,12 @@ def main():
         action="store_true",
         help="Skip Milestone 2 feature engineering (reproduces the Milestone 1 baseline).",
     )
+    parser.add_argument(
+        "--prune",
+        action="store_true",
+        help="Drop low-value/redundant features listed in src/dropped_features.json "
+        "(produced by notebooks/02_feature_importance.ipynb).",
+    )
     args = parser.parse_args()
 
     print("Loading data...")
@@ -87,6 +109,11 @@ def main():
 
     print("Preprocessing...")
     df = preprocess(df)
+
+    if args.prune:
+        before = df.shape[1]
+        df = drop_pruned_features(df)
+        print(f"Pruned {before - df.shape[1]} low-value/redundant features.")
 
     train_df, val_df = time_based_split(df)
     print(f"Train: {train_df.shape}, Val: {val_df.shape}")
@@ -134,7 +161,12 @@ def main():
     print("\nClassification report @ threshold 0.5:")
     print(classification_report(y_val, val_preds, target_names=["legit", "fraud"]))
 
-    model_path = "models/baseline_xgb.json" if args.baseline else "models/features_xgb.json"
+    if args.baseline:
+        model_path = "models/baseline_xgb.json"
+    elif args.prune:
+        model_path = "models/features_pruned_xgb.json"
+    else:
+        model_path = "models/features_xgb.json"
     model.save_model(model_path)
     print(f"Model saved to {model_path}")
 

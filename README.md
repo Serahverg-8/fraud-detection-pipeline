@@ -106,6 +106,15 @@ earlier transaction's computed features.
   slower than a fully vectorized approach. At 590k rows it's a non-issue
   (~2.5s total); would need revisiting at meaningfully larger scale.
 
+### Feature pruning (quick detour, not a formal milestone)
+
+`notebooks/02_feature_importance.ipynb` checked the trained model for dead
+weight: 56 features the model never split on, plus 71 `V`-columns highly
+correlated (>0.95) with another `V`-column. Dropping all 116 (`python -m
+src.train --prune`) held PR-AUC essentially flat (0.520 → 0.521) with 27%
+fewer features — a nice confirmation that a chunk of the anonymized
+`V`-columns really are redundant, not independent signal.
+
 ## Repo structure
 
 ```

@@ -9,10 +9,12 @@ be sorted and compared in the MLflow UI.
 Usage:
     python -m src.tune                    # XGBoost (default)
     python -m src.tune --model lightgbm
+    python -m src.tune --model catboost
 """
 
 import argparse
 
+import catboost as cb
 import lightgbm as lgb
 import mlflow
 import optuna
@@ -61,6 +63,20 @@ def suggest_lgbm_params(trial: optuna.Trial) -> dict:
     }
 
 
+def suggest_catboost_params(trial: optuna.Trial) -> dict:
+    """CatBoost's search space -- depth/l2_leaf_reg stand in for the other
+    models' depth/regularization knobs. No colsample_bytree equivalent
+    tuned here (CatBoost's is named differently and less commonly tuned).
+    """
+    return {
+        "depth": trial.suggest_int("depth", 3, 10),
+        "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
+        "n_estimators": trial.suggest_int("n_estimators", 100, 500),
+        "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1.0, 10.0),
+        "subsample": trial.suggest_float("subsample", 0.6, 1.0),
+    }
+
+
 def build_xgb_model(params: dict, scale_pos_weight: float) -> xgb.XGBClassifier:
     return xgb.XGBClassifier(
         **params,
@@ -84,6 +100,18 @@ def build_lgbm_model(params: dict, scale_pos_weight: float) -> lgb.LGBMClassifie
     )
 
 
+def build_catboost_model(params: dict, scale_pos_weight: float) -> cb.CatBoostClassifier:
+    return cb.CatBoostClassifier(
+        **params,
+        # CatBoost's default bootstrap_type (Bayesian) ignores `subsample`;
+        # Bernoulli is the one that actually uses it.
+        bootstrap_type="Bernoulli",
+        scale_pos_weight=scale_pos_weight,
+        random_state=42,
+        verbose=False,
+    )
+
+
 def fit_xgb_model(model, X_train, y_train, X_val, y_val) -> None:
     model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
 
@@ -95,12 +123,30 @@ def fit_lgbm_model(model, X_train, y_train, X_val, y_val) -> None:
     model.fit(X_train, y_train, eval_set=[(X_val, y_val)])
 
 
+def fit_catboost_model(model, X_train, y_train, X_val, y_val) -> None:
+    model.fit(X_train, y_train, eval_set=(X_val, y_val))
+
+
+def save_lgbm_model(model, path: str) -> None:
+    model.booster_.save_model(path)
+
+
+def save_generic_model(model, path: str) -> None:
+    model.save_model(path)
+
+
 MODELS = {
     "xgboost": {
-        "suggest": suggest_xgb_params, "build": build_xgb_model, "fit": fit_xgb_model, "save_ext": "json",
+        "suggest": suggest_xgb_params, "build": build_xgb_model, "fit": fit_xgb_model,
+        "save": save_generic_model, "save_ext": "json",
     },
     "lightgbm": {
-        "suggest": suggest_lgbm_params, "build": build_lgbm_model, "fit": fit_lgbm_model, "save_ext": "txt",
+        "suggest": suggest_lgbm_params, "build": build_lgbm_model, "fit": fit_lgbm_model,
+        "save": save_lgbm_model, "save_ext": "txt",
+    },
+    "catboost": {
+        "suggest": suggest_catboost_params, "build": build_catboost_model, "fit": fit_catboost_model,
+        "save": save_generic_model, "save_ext": "cbm",
     },
 }
 
@@ -171,8 +217,7 @@ def main():
     print(f"Best params: {best_state['params']}")
 
     model_path = f"models/tuned_{args.model}.{model_spec['save_ext']}"
-    best_state["model"].booster_.save_model(model_path) if args.model == "lightgbm" \
-        else best_state["model"].save_model(model_path)
+    model_spec["save"](best_state["model"], model_path)
     print(f"Best model saved to {model_path}")
 
 

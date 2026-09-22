@@ -8,3 +8,4 @@ pytest
 mlflow
 optuna
 lightgbm
+catboost

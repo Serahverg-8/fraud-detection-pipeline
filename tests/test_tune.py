@@ -1,7 +1,7 @@
 import optuna
 import pytest
 
-from src.tune import suggest_lgbm_params, suggest_xgb_params
+from src.tune import suggest_catboost_params, suggest_lgbm_params, suggest_xgb_params
 
 
 def test_suggest_xgb_params_returns_expected_keys():
@@ -63,4 +63,24 @@ def test_suggest_lgbm_params_returns_expected_keys():
         "min_child_samples": 20,
         "subsample": 0.8,
         "colsample_bytree": 0.8,
+    }
+
+
+def test_suggest_catboost_params_returns_expected_keys():
+    trial = optuna.trial.FixedTrial({
+        "depth": 6,
+        "learning_rate": 0.1,
+        "n_estimators": 300,
+        "l2_leaf_reg": 5.0,
+        "subsample": 0.8,
+    })
+
+    params = suggest_catboost_params(trial)
+
+    assert params == {
+        "depth": 6,
+        "learning_rate": 0.1,
+        "n_estimators": 300,
+        "l2_leaf_reg": 5.0,
+        "subsample": 0.8,
     }

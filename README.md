@@ -148,7 +148,19 @@ logged to MLflow (`run_type=tuning_xgboost`).
   (diminishing time-value for a portfolio project vs. moving on to
   LightGBM/CatBoost/TabM), but noted honestly rather than presenting 0.578
   as a ceiling.
-- LightGBM, CatBoost, and TabM tuning: not yet done.
+
+**LightGBM tuning done:** same 30-trial Optuna pattern (`python -m src.tune
+--model lightgbm`), search space over `num_leaves`, `learning_rate`,
+`n_estimators`, `min_child_samples`, `subsample`, `colsample_bytree`.
+
+- PR-AUC: **0.597** — better than tuned XGBoost (0.578). ROC-AUC: 0.913.
+  (best trial: `num_leaves=251, learning_rate=0.091, n_estimators=496,
+  min_child_samples=64, subsample=0.83, colsample_bytree=0.89`)
+- Same pattern as XGBoost: best trial landed at `num_leaves=251`, right at
+  the search space's upper bound (255) — likely more headroom, not
+  re-explored this pass for the same reason as above.
+
+- CatBoost and TabM tuning: not yet done.
 
 ## Repo structure
 

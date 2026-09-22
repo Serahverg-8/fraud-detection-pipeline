@@ -160,7 +160,25 @@ logged to MLflow (`run_type=tuning_xgboost`).
   the search space's upper bound (255) — likely more headroom, not
   re-explored this pass for the same reason as above.
 
-- CatBoost and TabM tuning: not yet done.
+**CatBoost tuning done:** same pattern (`python -m src.tune --model
+catboost`), search space over `depth`, `learning_rate`, `n_estimators`,
+`l2_leaf_reg`, `subsample`.
+
+- PR-AUC: **0.519** — notably *worse* than both XGBoost (0.578) and
+  LightGBM (0.597), despite `depth` also hitting the search space's upper
+  bound (10). ROC-AUC: 0.910.
+- **Likely cause, not just bad luck:** CatBoost's actual strength is its
+  native categorical handling (ordered target encoding on raw category
+  values), but our shared `preprocess()` step already integer-codes every
+  categorical column before any model sees it — so CatBoost was fed the
+  same flattened numeric features as XGBoost/LightGBM and never got to use
+  the one thing it's specifically good at. A fairer CatBoost comparison
+  would pass it the raw categorical columns directly (via `cat_features`)
+  instead of pre-encoded ones. Not redone this pass — noting it as the
+  probable explanation rather than concluding CatBoost is simply worse
+  here.
+
+- TabM tuning: not yet done.
 
 ## Repo structure
 

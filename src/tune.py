@@ -1,15 +1,19 @@
 """
-Hyperparameter tuning — Milestone 4 (XGBoost).
+Hyperparameter tuning — Milestone 4.
 
-Runs an Optuna study over XGBoost hyperparameters on the Milestone 2
-pruned feature set (our best result so far, PR-AUC 0.521). Every trial is
-logged to MLflow (tagged run_type=tuning_xgboost) so trials can be sorted
-and compared in the MLflow UI.
+Runs an Optuna study over hyperparameters on the Milestone 2 pruned
+feature set (our best result so far without tuning, PR-AUC 0.521). Every
+trial is logged to MLflow (tagged run_type=tuning_<model>) so trials can
+be sorted and compared in the MLflow UI.
 
 Usage:
-    python -m src.tune
+    python -m src.tune                    # XGBoost (default)
+    python -m src.tune --model lightgbm
 """
 
+import argparse
+
+import lightgbm as lgb
 import mlflow
 import optuna
 import xgboost as xgb
@@ -43,7 +47,70 @@ def suggest_xgb_params(trial: optuna.Trial) -> dict:
     }
 
 
+def suggest_lgbm_params(trial: optuna.Trial) -> dict:
+    """LightGBM's equivalent search space -- num_leaves/min_child_samples
+    stand in for XGBoost's max_depth/min_child_weight, same idea otherwise.
+    """
+    return {
+        "num_leaves": trial.suggest_int("num_leaves", 15, 255),
+        "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
+        "n_estimators": trial.suggest_int("n_estimators", 100, 500),
+        "min_child_samples": trial.suggest_int("min_child_samples", 5, 100),
+        "subsample": trial.suggest_float("subsample", 0.6, 1.0),
+        "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
+    }
+
+
+def build_xgb_model(params: dict, scale_pos_weight: float) -> xgb.XGBClassifier:
+    return xgb.XGBClassifier(
+        **params,
+        scale_pos_weight=scale_pos_weight,
+        eval_metric="aucpr",
+        tree_method="hist",
+        random_state=42,
+    )
+
+
+def build_lgbm_model(params: dict, scale_pos_weight: float) -> lgb.LGBMClassifier:
+    return lgb.LGBMClassifier(
+        **params,
+        # subsample only takes effect with subsample_freq > 0 -- fixed at 1
+        # (subsample every iteration) rather than tuned, to keep the search
+        # space the same size as XGBoost's.
+        subsample_freq=1,
+        scale_pos_weight=scale_pos_weight,
+        random_state=42,
+        verbose=-1,
+    )
+
+
+def fit_xgb_model(model, X_train, y_train, X_val, y_val) -> None:
+    model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
+
+
+def fit_lgbm_model(model, X_train, y_train, X_val, y_val) -> None:
+    # LightGBM's sklearn API silences per-iteration logs via the
+    # constructor's verbose=-1 (set in build_lgbm_model) rather than a
+    # fit()-time argument.
+    model.fit(X_train, y_train, eval_set=[(X_val, y_val)])
+
+
+MODELS = {
+    "xgboost": {
+        "suggest": suggest_xgb_params, "build": build_xgb_model, "fit": fit_xgb_model, "save_ext": "json",
+    },
+    "lightgbm": {
+        "suggest": suggest_lgbm_params, "build": build_lgbm_model, "fit": fit_lgbm_model, "save_ext": "txt",
+    },
+}
+
+
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", choices=MODELS.keys(), default="xgboost")
+    args = parser.parse_args()
+    model_spec = MODELS[args.model]
+
     mlflow.set_tracking_uri("sqlite:///mlflow.db")
     mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
 
@@ -61,48 +128,52 @@ def main():
     X_val, y_val = val_df[feature_cols], val_df["isFraud"]
     scale_pos_weight = (y_train == 0).sum() / (y_train == 1).sum()
 
-    best_state = {"pr_auc": -1.0, "model": None, "params": None}
+    best_state = {"pr_auc": -1.0, "roc_auc": None, "model": None, "params": None}
 
     def objective(trial: optuna.Trial) -> float:
-        params = suggest_xgb_params(trial)
-        model = xgb.XGBClassifier(
-            **params,
-            scale_pos_weight=scale_pos_weight,
-            eval_metric="aucpr",
-            tree_method="hist",
-            random_state=42,
-        )
-        model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
+        params = model_spec["suggest"](trial)
+        model = model_spec["build"](params, scale_pos_weight)
+        model_spec["fit"](model, X_train, y_train, X_val, y_val)
 
         val_probs = model.predict_proba(X_val)[:, 1]
         val_preds = (val_probs >= 0.5).astype(int)
         pr_auc = average_precision_score(y_val, val_probs)
+        roc_auc = roc_auc_score(y_val, val_probs)
+
+        # PR-AUC is what we optimize for (the right metric given the class
+        # imbalance), but ROC-AUC is printed alongside it because that's
+        # the actual metric Kaggle scores submissions on -- worth watching
+        # both in case they ever diverge meaningfully.
+        print(f"  trial {trial.number}: PR-AUC={pr_auc:.4f}  ROC-AUC={roc_auc:.4f}")
 
         log_run(
-            {"run_type": "tuning_xgboost", "scale_pos_weight": scale_pos_weight,
+            {"run_type": f"tuning_{args.model}", "scale_pos_weight": scale_pos_weight,
              "n_features": len(feature_cols), **params},
             {
                 "pr_auc": pr_auc,
-                "roc_auc": roc_auc_score(y_val, val_probs),
+                "roc_auc": roc_auc,
                 "fraud_precision": precision_score(y_val, val_preds),
                 "fraud_recall": recall_score(y_val, val_preds),
             },
         )
 
         if pr_auc > best_state["pr_auc"]:
-            best_state.update(pr_auc=pr_auc, model=model, params=params)
+            best_state.update(pr_auc=pr_auc, roc_auc=roc_auc, model=model, params=params)
 
         return pr_auc
 
-    print(f"Running {N_TRIALS} Optuna trials...")
+    print(f"Running {N_TRIALS} Optuna trials ({args.model})...")
     study = optuna.create_study(direction="maximize")
     study.optimize(objective, n_trials=N_TRIALS)
 
-    print(f"\nBest PR-AUC: {best_state['pr_auc']:.4f}")
+    print(f"\nBest PR-AUC:  {best_state['pr_auc']:.4f}")
+    print(f"Best ROC-AUC: {best_state['roc_auc']:.4f}  (same trial as best PR-AUC, not independently optimized)")
     print(f"Best params: {best_state['params']}")
 
-    best_state["model"].save_model("models/tuned_xgb.json")
-    print("Best model saved to models/tuned_xgb.json")
+    model_path = f"models/tuned_{args.model}.{model_spec['save_ext']}"
+    best_state["model"].booster_.save_model(model_path) if args.model == "lightgbm" \
+        else best_state["model"].save_model(model_path)
+    print(f"Best model saved to {model_path}")
 
 
 if __name__ == "__main__":

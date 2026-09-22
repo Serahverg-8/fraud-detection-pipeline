@@ -1,7 +1,7 @@
 import optuna
 import pytest
 
-from src.tune import suggest_xgb_params
+from src.tune import suggest_lgbm_params, suggest_xgb_params
 
 
 def test_suggest_xgb_params_returns_expected_keys():
@@ -42,3 +42,25 @@ def test_suggest_xgb_params_warns_on_out_of_range_value():
 
     with pytest.warns(UserWarning, match="max_depth"):
         suggest_xgb_params(trial)
+
+
+def test_suggest_lgbm_params_returns_expected_keys():
+    trial = optuna.trial.FixedTrial({
+        "num_leaves": 31,
+        "learning_rate": 0.1,
+        "n_estimators": 300,
+        "min_child_samples": 20,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+    })
+
+    params = suggest_lgbm_params(trial)
+
+    assert params == {
+        "num_leaves": 31,
+        "learning_rate": 0.1,
+        "n_estimators": 300,
+        "min_child_samples": 20,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+    }

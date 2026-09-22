@@ -9,3 +9,5 @@ mlflow
 optuna
 lightgbm
 catboost
+torch
+tabm

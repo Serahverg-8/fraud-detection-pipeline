@@ -21,7 +21,7 @@ accuracy is close to meaningless here.
 - [x] Milestone 1 — Baseline (EDA + plain model, no feature engineering)
 - [x] Milestone 2 — Feature engineering (group aggregations vs. baseline PR-AUC)
 - [x] Milestone 3 — MLflow experiment tracking
-- [ ] Milestone 4 — Model experimentation (XGBoost/LightGBM/CatBoost tuning + TabM)
+- [x] Milestone 4 — Model experimentation (XGBoost/LightGBM/CatBoost tuning + TabM)
 - [ ] Milestone 5 — Kaggle submission
 - [ ] Milestone 6 — Serving (FastAPI scoring endpoint)
 - [ ] Milestone 7 — Monitoring (drift check)
@@ -132,7 +132,7 @@ features, features+pruned) as a starting history. View with:
 mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
 
-### Milestone 4 — Model experimentation (in progress)
+### Milestone 4 — Model experimentation
 
 **XGBoost tuning done:** 30-trial Optuna search (`python -m src.tune`) over
 `max_depth`, `learning_rate`, `n_estimators`, `min_child_weight`,
@@ -178,7 +178,37 @@ catboost`), search space over `depth`, `learning_rate`, `n_estimators`,
   probable explanation rather than concluding CatBoost is simply worse
   here.
 
-- TabM tuning: not yet done.
+**TabM baseline done:** one run (`python -m src.tune_tabm`) with a fixed,
+reasonable architecture (`n_blocks=3, d_block=256, dropout=0.1, k=8`) —
+not a full Optuna sweep like the tree models got (see Milestone 4 design
+note above), since the goal was checking whether a deep learning model is
+competitive here at all before investing in tuning it further. Trained on
+the Mac's M5 GPU via PyTorch's MPS backend, 15 epochs, ~3.5 min total.
+
+- PR-AUC: **0.432**, ROC-AUC: 0.836 — the worst of the 4 models.
+- **Training was noticeably unstable:** PR-AUC swung between 0.22 and 0.43
+  across epochs rather than improving smoothly, and ROC-AUC actually
+  *declined* over training (0.86 → 0.83). Likely causes: a fixed learning
+  rate with no schedule or early stopping, and 15 epochs is a light
+  training budget for a from-scratch deep model on this much data —
+  neural tabular models typically need considerably more epochs and
+  careful LR scheduling to converge well, which trees don't.
+- Given the scope decision to do one baseline run rather than a full
+  sweep, this result reads as "TabM needs real tuning investment to be
+  competitive here," not "TabM doesn't work for fraud detection."
+  Honest as-is: it's not the model we'd pick without further work.
+
+### Milestone 4 summary
+
+| Model | PR-AUC | ROC-AUC |
+|---|---|---|
+| LightGBM (tuned) | **0.597** | 0.913 |
+| XGBoost (tuned) | 0.578 | 0.904 |
+| CatBoost (tuned) | 0.519 | 0.910 |
+| TabM (untuned baseline) | 0.432 | 0.836 |
+
+**LightGBM is the winner** and will be the model carried into Milestone 5
+(Kaggle submission).
 
 ## Repo structure
 

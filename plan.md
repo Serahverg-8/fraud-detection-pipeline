@@ -80,7 +80,8 @@ fraud-detection-pipeline/
 - [x] Milestone 2 — Feature engineering (PR-AUC 0.520; 0.521 after a feature
       pruning detour — see README)
 - [ ] Milestone 3 — MLflow experiment tracking
-- [ ] Milestone 4 — Model experimentation (tuning + TabM)
+- [x] Milestone 4 — Model experimentation (tuning + TabM; LightGBM won,
+      PR-AUC 0.597 — see README)
 - [ ] Milestone 5 — Kaggle submission
 - [ ] Milestone 6 — Serving
 - [ ] Milestone 7 — Monitoring

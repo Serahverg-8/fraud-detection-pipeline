@@ -22,7 +22,7 @@ accuracy is close to meaningless here.
 - [x] Milestone 2 — Feature engineering (group aggregations vs. baseline PR-AUC)
 - [x] Milestone 3 — MLflow experiment tracking
 - [x] Milestone 4 — Model experimentation (XGBoost/LightGBM/CatBoost tuning + TabM)
-- [x] Milestone 5 — Kaggle submission (Private LB 0.9261 ROC-AUC)
+- [x] Milestone 5 — Kaggle submission (Private LB 0.8868 ROC-AUC)
 - [ ] Milestone 6 — Serving (FastAPI scoring endpoint)
 - [ ] Milestone 7 — Monitoring (drift check)
 - [ ] Milestone 8 — Containerize
@@ -239,17 +239,31 @@ calibration sanity check), no NaNs, no duplicate `TransactionID`s.
 supported by the `kaggle`/`kagglehub` packages, same issue as the
 original dataset download in Milestone 1):
 
-- **Private LB (the actual final score): 0.9261 ROC-AUC**
-- Public LB: 0.8868 ROC-AUC
+- **Private LB (the actual final score): 0.8868 ROC-AUC**
+- Public LB: 0.9261 ROC-AUC
+
+The private score is meaningfully lower than the public one — a real,
+worth-noting finding, not just noise. This competition's public/private
+split is time-based like our own train/val split: the private set is
+*later* in time than the public set, so it's a harder test of how well
+the model generalizes further into the future. Our validation throughout
+Milestones 1-4 only measured performance on one time-based split close to
+training; the private score shows that gap widening further out — a
+concrete illustration of why "validate on data that resembles when the
+model will actually be used" matters, not just "validate on any held-out
+data."
 
 For context: this competition's 1st place solution — an ensemble of
 tuned XGBoost/LightGBM/CatBoost plus a "UID" reconstruction trick to
 identify the real client behind anonymized transactions (see next
 section) — scored 0.9459 private. Their *individual*, non-ensembled
-models scored 0.93–0.94. Landing at 0.9261 with a single model, no UID
-feature engineering, and a 30-trial tuning budget is a solid result for
-where this project chose to stop — not top-leaderboard, but well within
-range of a credible single-model submission.
+models still scored 0.93–0.94. Our 0.8868 private is a real, honest gap
+of roughly 5-7 points of ROC-AUC even against single (non-ensembled) top
+models — not a top-leaderboard result. The likely biggest levers to close
+that gap, in rough order of expected impact: UID reconstruction (the
+single technique behind most of the winning solutions' edge), the
+public/private generalization gap noted above (better temporal-drift
+handling), and ensembling the three tuned models instead of picking one.
 
 ### What we deliberately didn't do (and why)
 

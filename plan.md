@@ -82,8 +82,9 @@ fraud-detection-pipeline/
 - [ ] Milestone 3 — MLflow experiment tracking
 - [x] Milestone 4 — Model experimentation (tuning + TabM; LightGBM won,
       PR-AUC 0.597 — see README)
-- [x] Milestone 5 — Kaggle submission (Private LB 0.9261 ROC-AUC — see
-      README for how this compares to the winning solution)
+- [x] Milestone 5 — Kaggle submission (Private LB 0.8868 ROC-AUC — see
+      README for how this compares to the winning solution and the
+      public/private generalization gap)
 - [ ] Milestone 6 — Serving
 - [ ] Milestone 7 — Monitoring
 - [ ] Milestone 8 — Containerize

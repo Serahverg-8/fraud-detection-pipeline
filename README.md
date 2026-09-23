@@ -22,7 +22,7 @@ accuracy is close to meaningless here.
 - [x] Milestone 2 — Feature engineering (group aggregations vs. baseline PR-AUC)
 - [x] Milestone 3 — MLflow experiment tracking
 - [x] Milestone 4 — Model experimentation (XGBoost/LightGBM/CatBoost tuning + TabM)
-- [ ] Milestone 5 — Kaggle submission
+- [x] Milestone 5 — Kaggle submission (Private LB 0.9261 ROC-AUC)
 - [ ] Milestone 6 — Serving (FastAPI scoring endpoint)
 - [ ] Milestone 7 — Monitoring (drift check)
 - [ ] Milestone 8 — Containerize
@@ -210,7 +210,7 @@ the Mac's M5 GPU via PyTorch's MPS backend, 15 epochs, ~3.5 min total.
 **LightGBM is the winner** and will be the model carried into Milestone 5
 (Kaggle submission).
 
-### Milestone 5 — Kaggle submission (submission generated, upload pending)
+### Milestone 5 — Kaggle submission
 
 `python -m src.predict` retrains LightGBM (winning Milestone 4
 hyperparams, pulled from MLflow rather than hardcoded) on **100% of the
@@ -235,11 +235,41 @@ Result: `submissions/submission.csv`, 506,691 predictions, mean predicted
 probability 3.4% (close to the training set's 3.5% fraud rate — a good
 calibration sanity check), no NaNs, no duplicate `TransactionID`s.
 
-**Not yet done:** actually uploading to Kaggle for a real leaderboard
-score. The Kaggle API's newer token format isn't supported by the
-`kaggle`/`kagglehub` packages (same issue as the original dataset
-download in Milestone 1) — this will need a manual browser upload at
-kaggle.com/c/ieee-fraud-detection/submit.
+**Uploaded to Kaggle** (manually — the API's newer token format isn't
+supported by the `kaggle`/`kagglehub` packages, same issue as the
+original dataset download in Milestone 1):
+
+- **Private LB (the actual final score): 0.9261 ROC-AUC**
+- Public LB: 0.8868 ROC-AUC
+
+For context: this competition's 1st place solution — an ensemble of
+tuned XGBoost/LightGBM/CatBoost plus a "UID" reconstruction trick to
+identify the real client behind anonymized transactions (see next
+section) — scored 0.9459 private. Their *individual*, non-ensembled
+models scored 0.93–0.94. Landing at 0.9261 with a single model, no UID
+feature engineering, and a 30-trial tuning budget is a solid result for
+where this project chose to stop — not top-leaderboard, but well within
+range of a credible single-model submission.
+
+### What we deliberately didn't do (and why)
+
+Documented here rather than silently omitted, since the point of this
+project is honest tradeoffs, not chasing the highest possible number:
+
+- **UID reconstruction** (`card1` + `addr1` + normalized `D1` to
+  reconstruct the real entity behind anonymized transactions) — the
+  single biggest lever in the winning solutions. Would very likely close
+  a meaningful chunk of the 0.02 gap to the top individual models. Skipped
+  to keep this project's feature engineering scope to what we could
+  clearly attribute PR-AUC changes to (Milestone 2's design goal), and
+  because 0.926 was already a good enough result to stop at without it.
+- **Ensembling** (blending XGBoost + LightGBM + CatBoost predictions) —
+  the other big lever the winners used. Straightforward to add later if
+  revisited; not done here since Milestone 4 was about comparing models
+  individually, not combining them.
+- **CatBoost with native categorical handling** (`cat_features`, instead
+  of pre-integer-encoded columns) — noted in Milestone 4 as the likely
+  fix for CatBoost's underperformance; not retried.
 
 ## Repo structure
 

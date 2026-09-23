@@ -210,6 +210,37 @@ the Mac's M5 GPU via PyTorch's MPS backend, 15 epochs, ~3.5 min total.
 **LightGBM is the winner** and will be the model carried into Milestone 5
 (Kaggle submission).
 
+### Milestone 5 — Kaggle submission (submission generated, upload pending)
+
+`python -m src.predict` retrains LightGBM (winning Milestone 4
+hyperparams, pulled from MLflow rather than hardcoded) on **100% of the
+labeled training data** — the validation split's job was model selection,
+which is done — then scores the competition's actual test set.
+
+Two correctness details that would have silently broken this without
+catching them:
+- **`test_identity.csv` uses hyphens** (`id-01`) **where
+  `train_identity.csv` uses underscores** (`id_01`) — a known quirk of
+  this competition's files. Without normalizing this, the merge would
+  silently produce all-NaN identity columns for every test row instead of
+  erroring.
+- **Feature engineering and categorical encoding run on train+test
+  combined**, not separately, before splitting back apart. Test
+  transactions are chronologically after train in this dataset, so the
+  card aggregation features need train's history to be correct; and
+  categorical integer codes must be fit once across both, or train and
+  test could silently disagree on what code N means for a given column.
+
+Result: `submissions/submission.csv`, 506,691 predictions, mean predicted
+probability 3.4% (close to the training set's 3.5% fraud rate — a good
+calibration sanity check), no NaNs, no duplicate `TransactionID`s.
+
+**Not yet done:** actually uploading to Kaggle for a real leaderboard
+score. The Kaggle API's newer token format isn't supported by the
+`kaggle`/`kagglehub` packages (same issue as the original dataset
+download in Milestone 1) — this will need a manual browser upload at
+kaggle.com/c/ieee-fraud-detection/submit.
+
 ## Repo structure
 
 ```
@@ -221,9 +252,13 @@ fraud-detection-pipeline/
 ├── src/
 │   ├── features.py    # feature engineering
 │   ├── train.py       # training script
+│   ├── tune.py        # hyperparameter tuning (XGBoost/LightGBM/CatBoost)
+│   ├── tune_tabm.py   # TabM (deep learning) baseline
+│   ├── predict.py     # Kaggle test-set predictions
 │   ├── serve.py       # FastAPI scoring endpoint
 │   └── monitor.py     # drift check
 ├── models/            # saved model artifacts (gitignored)
+├── submissions/       # Kaggle submission CSVs (gitignored)
 ├── tests/             # unit tests (pytest)
 ├── mlflow.db          # MLflow run history (gitignored)
 ├── Dockerfile          # Milestone 8

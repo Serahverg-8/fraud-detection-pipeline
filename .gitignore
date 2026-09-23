@@ -6,11 +6,16 @@ data/*
 models/*
 !models/.gitkeep
 
+# kaggle submissions
+submissions/*
+!submissions/.gitkeep
+
 # experiment tracking
 mlruns/
 mlartifacts/
 mlflow.db
 experiments.csv
+catboost_info/
 
 # python
 __pycache__/
